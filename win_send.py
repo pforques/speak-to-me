@@ -1,4 +1,3 @@
-import ctypes
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -8,12 +7,6 @@ import win32con
 import win32console
 import win32gui
 import win32process
-
-try:
-    import psutil  # optional, for diagnostics
-except Exception:  # pragma: no cover
-    psutil = None  # type: ignore
-
 
 TARGET_CLASSES = {"ConsoleWindowClass", "PseudoConsoleWindow", "CASCADIA_HOSTING_WINDOW_CLASS"}
 
@@ -45,24 +38,6 @@ def find_window_by_pid(pid: int) -> Optional[TargetWindow]:
 
     win32gui.EnumWindows(enum_cb, None)
     return match
-
-
-def _set_foreground(hwnd: int) -> bool:
-    try:
-        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-        fg = win32gui.GetForegroundWindow()
-        cur_thread = win32api.GetCurrentThreadId()
-        fg_thread = win32process.GetWindowThreadProcessId(fg)[0] if fg else cur_thread
-        tgt_thread = win32process.GetWindowThreadProcessId(hwnd)[0]
-        user32 = ctypes.windll.user32
-        user32.AttachThreadInput(cur_thread, fg_thread, True)
-        user32.AttachThreadInput(cur_thread, tgt_thread, True)
-        win32gui.SetForegroundWindow(hwnd)
-        user32.AttachThreadInput(cur_thread, fg_thread, False)
-        user32.AttachThreadInput(cur_thread, tgt_thread, False)
-        return win32gui.GetForegroundWindow() == hwnd
-    except Exception:
-        return False
 
 
 def _send_char(c: str, delay: float) -> None:
@@ -154,20 +129,9 @@ def send_text_to_pid(pid: int, text: str, submit: bool = True, delay: float = 0.
         ok = send_text_to_console_pid(pid, text, submit=submit, delay=delay)
         if ok:
             return True
-
-    if not _set_foreground(target.hwnd):
-        print(f"[send] impossible de mettre la fenêtre au premier plan (pid={pid})")
+        print(f"[send] injection console échouée pour pid={pid} (classe={classname})")
         return False
-    time.sleep(0.05)
 
-    try:
-        for ch in text:
-            _send_char(ch, delay)
-        if submit:
-            win32api.keybd_event(win32con.VK_RETURN, 0, 0, 0)
-            time.sleep(delay)
-            win32api.keybd_event(win32con.VK_RETURN, 0, win32con.KEYEVENTF_KEYUP, 0)
-        return True
-    except Exception as exc:  # pragma: no cover
-        print(f"[send] erreur d'envoi: {exc}")
-        return False
+    # Pas de mise au premier plan pour les autres classes (Cascadia/PseudoConsole) : on ne force plus le focus.
+    print(f"[send] classe non supportée pour envoi direct : {classname} (pid={pid})")
+    return False
