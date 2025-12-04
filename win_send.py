@@ -56,6 +56,37 @@ def _send_char(c: str, delay: float) -> None:
     time.sleep(delay)
 
 
+def _tap_vk(vk_code: int, delay: float) -> None:
+    """Send a single virtual-key press/release."""
+    win32api.keybd_event(vk_code, 0, 0, 0)
+    time.sleep(delay)
+    win32api.keybd_event(vk_code, 0, win32con.KEYEVENTF_KEYUP, 0)
+    time.sleep(delay)
+
+
+def send_text_to_window(target: TargetWindow, text: str, submit: bool, delay: float) -> bool:
+    """
+    Send keystrokes to a PseudoConsole/Windows Terminal host window.
+    We bring the window to the foreground when possible, then simulate key presses.
+    """
+    try:
+        win32gui.ShowWindow(target.hwnd, win32con.SW_RESTORE)
+        win32gui.SetForegroundWindow(target.hwnd)
+    except Exception:
+        # Even if we cannot foreground the window, we still try to send the keys.
+        pass
+
+    try:
+        for ch in text:
+            _send_char(ch, delay)
+        if submit:
+            _tap_vk(win32con.VK_RETURN, delay)
+        return True
+    except Exception as exc:
+        print(f"[send] envoi via key events echoue : {exc}")
+        return False
+
+
 def send_text_to_console_pid(pid: int, text: str, submit: bool = True, delay: float = 0.02) -> bool:
     """Inject key events directly into a console's input buffer via WriteConsoleInput."""
     try:
@@ -132,6 +163,9 @@ def send_text_to_pid(pid: int, text: str, submit: bool = True, delay: float = 0.
         print(f"[send] injection console échouée pour pid={pid} (classe={classname})")
         return False
 
-    # Pas de mise au premier plan pour les autres classes (Cascadia/PseudoConsole) : on ne force plus le focus.
-    print(f"[send] classe non supportée pour envoi direct : {classname} (pid={pid})")
+    ok = send_text_to_window(target, text, submit=submit, delay=delay)
+    if ok:
+        return True
+
+    print(f"[send] envoi via key events échoue pour pid={pid} (classe={classname})")
     return False
