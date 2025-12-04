@@ -35,14 +35,6 @@ Ce projet fait trois choses :
 ## Modèle Whisper
 - Le dossier `models/` contient déjà un modèle local. Référence-le avec `--model-path models`.
 - Pas de téléchargement HF nécessaire (network peut rester coupé).
-Si tu n’as pas le modèle, télécharge-le depuis la racine du projet :
-```powershell
-# deps déjà installées via requirements.txt
-.venv\Scripts\python -m faster_whisper.download_model --model small --output_dir models
-# ou plus léger :
-# .venv\Scripts\python -m faster_whisper.download_model --model small-int8 --output_dir models
-# si besoin d’auth HF : set HF_TOKEN=... ou huggingface-cli login
-```
 
 ## Flux typique
 1) Tu lances Codex manuellement.
@@ -62,21 +54,3 @@ Si tu n’as pas le modèle, télécharge-le depuis la racine du projet :
 ## Notes
 - `send.py` utilise pywin32 pour taper dans la fenêtre ciblée (fallback WriteConsoleInput quand c’est une console classique).
 - Assure-toi que la fenêtre Codex est visible (pas minimisée). Si plusieurs consoles Codex, prends le bon PID dans `list_shells.py`.
-
-## Installation sur une machine neuve (récap)
-```powershell
-git clone git@github.com:pforques/speak-to-me.git
-cd speak-to-me
-winget install Python.Python.3.11      # si Python non présent
-python -m venv .venv
-.venv\Scripts\python -m pip install --upgrade pip
-.venv\Scripts\python -m pip install -r requirements.txt
-# récupérer/installer le modèle
-.venv\Scripts\python -m faster_whisper.download_model --model small --output_dir models
-# lancer Codex manuellement, récupérer le PID :
-.venv\Scripts\python list_shells.py
-# tester l’envoi :
-.venv\Scripts\python send.py "Bonjour" --pid <PID>
-# lancer le vocal :
-.venv\Scripts\python main.py --model-path models --codex-pid <PID>
-```
